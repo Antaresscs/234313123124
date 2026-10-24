@@ -42,6 +42,18 @@ input{width:100%;background:var(--card);border:1px solid var(--line);border-radi
 .stg{font-weight:700;color:var(--acc);margin:18px 2px 8px}
 .lock{background:#fff7e8;border-radius:14px;padding:12px;color:#8a6420;font-size:14px;margin-bottom:10px}
 .info{background:#e4f6f4;border-radius:14px;padding:12px;margin-bottom:10px;font-size:14px;white-space:pre-line}
+.toc{background:var(--card);border-radius:14px;box-shadow:0 1px 4px #0b3a3f10;overflow:hidden;margin:6px 0 4px}
+.toc div{padding:12px 14px;border-bottom:1px solid var(--line);font-size:14px;display:flex;justify-content:space-between;cursor:pointer}
+.toc div:last-child{border-bottom:0}.toc .off{color:var(--mut)}
+.sh{text-align:center;margin:28px 0 10px}.sh h3{margin:0;font-size:20px}.sh small{color:var(--mut)}
+.sh i{display:block;width:40px;height:3px;background:var(--acc);margin:10px auto 0;border-radius:2px}
+.goal{text-align:center;font-size:14px;margin:0 6px 14px}
+.chip{background:#eef5f6;border-radius:10px;padding:8px 10px;text-align:center;font-size:13px;color:var(--txt);margin-top:8px}
+.ex ul{margin:8px 0 0;padding-left:18px;font-size:14px}.ex li{margin:3px 0}
+.intro{font-size:14px;text-align:center;margin:4px 6px 14px}
+.pdf{display:inline-block;background:var(--card);border:1px solid var(--acc);color:var(--acc);border-radius:18px;padding:7px 14px;font-weight:600;font-size:13px;margin-top:8px;cursor:pointer;text-decoration:none}
+.by{background:var(--card);border-radius:14px;padding:14px;margin-top:24px;box-shadow:0 1px 4px #0b3a3f10;font-size:14px}
+.ask{text-align:center;background:var(--card);border-radius:14px;padding:16px;margin-top:10px;box-shadow:0 1px 4px #0b3a3f10}
 .muted{color:var(--mut);font-size:13px}
 .demo{font-size:11px;color:#ffb44d;text-align:center;margin-bottom:6px}
 </style>
@@ -57,7 +69,7 @@ input{width:100%;background:var(--card);border:1px solid var(--line);border-radi
       <div class="seg" id="segSex"><button class="on" onclick="setSex('f')">Ж</button><button onclick="setSex('m')">М</button></div>
     </div>
     <div class="stage">
-      <img id="fig" src="f_front.jpg" alt="Фигура человека">
+      <img id="fig" src="" alt="Фигура человека">
       <svg id="zones" viewBox="0 0 1024 1536"><defs><filter id="glow"><feGaussianBlur stdDeviation="12"/></filter></defs></svg>
     </div>
     <div class="hint" id="hint"></div>
@@ -116,11 +128,13 @@ const Z = {
 // Демо-программы — только если API_URL пустой.
 const DEMO = [{id:'1',name:'Демо: плечо',body:['Плечевой сустав'],img:'',stages:[{order:2,name:'Этап 1',locked:false,count:1,
   ex:[{name:'Маятниковые движения',dosage:'10 повторений, 2 подхода',description:'Наклонитесь вперёд, рука свободно свисает.',img:''}]}]}];
+// Папка с картинками — работает и без «/» в конце адреса
+const BASE = location.pathname.endsWith('/') || /\.html?$/.test(location.pathname) ? '' : location.pathname.split('/').pop() + '/';
 const tg = window.Telegram && Telegram.WebApp; if(tg){tg.ready();tg.expand();}
 let sex='f', side='front', picked=new Set(), data=API_URL?[]:DEMO, cur=null, loaded=!API_URL;
 
 function draw(){
-  document.getElementById('fig').src = `${sex}_${side}.jpg`;
+  document.getElementById('fig').src = `${BASE}${sex}_${side}.jpg`;
   const svg=document.getElementById('zones'); svg.querySelectorAll('ellipse').forEach(c=>c.remove());
   Z[side].forEach(([n,x,y,rx,ry,pair])=>{ (pair?[x,1024-x]:[x]).forEach(cx=>{
     const c=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
@@ -159,23 +173,39 @@ function renderList(){
     `<div class="row" onclick="openProg('${esc(p.id)}')"><div class="num">${esc(p.id)}</div>${p.img?`<img class="thumb" loading="lazy" src="${esc(p.img)}">`:''}<div>${esc(p.name)}</div></div>`).join('')
     : '<p class="muted">Для этой области программ пока нет. Попробуйте поиск или спросите специалиста.</p>';
 }
-function dose(d){const r=(d.match(/(\d+)\s*повтор/)||[])[1], s=(d.match(/(\d+)\s*подход/)||[])[1];
-  if(r||s) return `<div class="d">${r?`<div><small>Повторения</small>${r}</div>`:''}${s?`<div><small>Подходы</small>${s}</div>`:''}</div>`;
-  return d?`<div class="d"><div><small>Дозировка</small>${esc(d)}</div></div>`:'';}
+function bullets(t){const L=String(t||'').split(/\n+/).map(x=>x.replace(/^[-•–]\s*/,'').trim()).filter(Boolean);
+  return L.length>1?'<ul>'+L.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':(L[0]?'<div class="muted" style="margin-top:8px">'+esc(L[0])+'</div>':'');}
+function exWord(n){const a=n%10,b=n%100;return n+' '+(a===1&&b!==11?'упражнение':a>=2&&a<=4&&(b<10||b>=20)?'упражнения':'упражнений')}
+function splitStage(n,o){const p=String(n||'').split(/\s+[—–-]\s+/);return {t:p[0]||('Этап '+o),w:p.slice(1).join(' — ')}}
 function openProg(id){cur=data.find(p=>String(p.id)===String(id)); if(!cur) return;
   document.getElementById('ptitle').textContent=cur.name;
-  const total=cur.stages.reduce((a,s)=>a+(s.count||0),0);
-  document.getElementById('pmeta').textContent=`Программа №${cur.id} · этапов: ${cur.stages.length} · упражнений: ${total}`;
+  document.getElementById('pmeta').textContent=`Программа №${cur.id}`;
+  const intro=cur.stages.find(s=>s.order===1), st=cur.stages.filter(s=>s.order!==1);
+  let h='';
+  const ppdf=(intro&&intro.pdf)||'';
+  if(ppdf) h+=`<div style="margin-bottom:10px"><a class="pdf" onclick="openPdf('${esc(ppdf)}')">📄 Программа в PDF</a></div>`;
+  if(intro) h+=intro.ex.map(e=>`<div class="info"><b>${esc(e.name)}</b>${e.description?'\n'+esc(e.description):''}</div>`).join('');
+  if(st.length){
+    h+='<div class="sep">Содержание</div><div class="toc">'+st.map(s=>{const x=splitStage(s.name,s.order);
+      return `<div class="${s.locked?'off':''}" onclick="document.getElementById('st${s.order}').scrollIntoView({behavior:'smooth'})"><span><b>${esc(x.t)}</b>${x.w?' · '+esc(x.w):''} · ${exWord(s.count||0)}</span><span>${s.locked?'🔒':'›'}</span></div>`}).join('')+'</div>';
+    if(st.some(s=>s.locked)) h+='<p class="muted" style="font-size:12px;margin:6px 4px">🔒 Этапы открываются по коду от специалиста.</p>';
+  }
   let n=0;
-  document.getElementById('exs').innerHTML=cur.stages.map(st=>{
-    let h=`<div class="stg">${esc(st.name||('Этап '+st.order))}</div>`;
-    if(st.locked) return h+`<div class="lock">🔒 Этот этап открывается по коду от специалиста.<br>Введите код в боте: «🔑 Ввести код».</div>`;
-    return h+st.ex.map(e=> e.info
-      ? `<div class="info"><b>${esc(e.name)}</b>${e.description?'\n'+esc(e.description):''}</div>`
-      : `<div class="ex"><b>${++n}. ${esc(e.name)}</b>${e.img?`<img loading="lazy" src="${esc(e.img)}">`:''}${dose(e.dosage||'')}<div class="muted">${esc(e.description)}</div></div>`).join('');
+  h+=st.map(s=>{const x=splitStage(s.name,s.order);
+    let o=`<div class="sh" id="st${s.order}"><h3>${esc(x.t)}</h3><small>${x.w?esc(x.w)+' · ':''}${exWord(s.count||0)}</small>${(!s.locked&&s.pdf&&s.pdf!==ppdf)?`<br><a class="pdf" onclick="openPdf('${esc(s.pdf)}')">📄 Этап в PDF</a>`:''}<i></i></div>`;
+    if(s.locked) return o+`<div class="lock">🔒 Этот этап открывается по коду от специалиста.<br>Введите код в боте: «🔑 Ввести код».</div>`;
+    const goals=s.ex.filter(e=>e.info), ex=s.ex.filter(e=>!e.info);
+    o+=goals.map(g=>`<div class="goal"><b>${esc(g.name)}</b>${g.description?'<br>'+esc(g.description):''}</div>`).join('');
+    return o+ex.map(e=>`<div class="ex">${e.img?`<img loading="lazy" src="${esc(e.img)}" onclick="zoom(this.src)">`:''}<b>#${++n}. ${esc(e.name)}</b>${e.dosage?`<div class="chip">${esc(e.dosage)}</div>`:''}${bullets(e.description)}</div>`).join('');
   }).join('');
-  go('s-prog');
+  h+=`<div class="by">👩‍⚕️ <b>Программу составил специалист STARehab</b></div>
+      <div class="ask"><b>Есть вопрос по упражнениям?</b><div class="muted" style="margin:4px 0 10px">Спросите специалиста — ответим в чате</div>
+      <button class="btn" onclick="tgSay('💬 Вопрос')">💬 Задать вопрос</button></div>`;
+  document.getElementById('exs').innerHTML=h; go('s-prog');
 }
+function openPdf(u){ if(tg&&tg.openLink) tg.openLink(u); else window.open(u,'_blank'); }
+function zoom(src){const d=document.createElement('div');d.style.cssText='position:fixed;inset:0;background:#000d;display:grid;place-items:center;z-index:9';
+  d.innerHTML=`<img src="${src}" style="max-width:96%;max-height:90%;border-radius:10px">`;d.onclick=()=>d.remove();document.body.appendChild(d)}
 function askCode(){go('s-list');document.getElementById('ltitle').textContent='Поиск по номеру';picked.clear();upd();draw();document.getElementById('q').focus();renderList()}
 function tgSay(t){
   if(BOT_URL && tg && tg.openTelegramLink){ tg.openTelegramLink(BOT_URL); tg.close(); return; }
